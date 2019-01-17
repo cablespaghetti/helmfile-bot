@@ -37,7 +37,7 @@ function push {
 # grep for lines containing image:
 # Hide the diff we get everytime for the test Pod for the Keycloak Chart
 # Fix the fact + keeps getting URL encoded to a space
-diff="$(cat $diff_file | sed -r 's/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g' | \grep -E '^(\+|-)' | \grep 'image:' | \grep -v selenium | sed 's/+/%2B/g')"
+diff="$(cat $diff_file | sed -r 's/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g' | \grep -E '^(\+|-)' | \grep 'image:' | \grep -v selenium)"
 
 committer=$(git log -1 --pretty=format:'%an' 2>/dev/null) || true
 if [ -z "$committer" ]
@@ -59,10 +59,71 @@ else
   fi
 fi
 
+
 if [[ -z "${diff// }" ]]
 then
   push "Deployment made to $namespace but no versions changed. $committer_message $commit_message"
 else
+  diff_message=""
+  while read -r added_line; do
+    if [[ $added_line == +* ]]; then
+      added_image_name=$(echo $added_line | cut -d':' -f2 | cut -d'/' -f2 | awk '$1=$1')
+      added_image_tag=$(echo $added_line | cut -d':' -f3 | awk '$1==$1')
+      if [ -z "$added_image_tag" ]; then
+        added_image_tag="latest"
+      fi
+
+      match=0
+      while read -r removed_line; do
+        if [[ $removed_line == -* ]]; then
+          removed_image_name=$(echo $removed_line | cut -d':' -f2 | cut -d'/' -f2 | awk '$1=$1')
+          removed_image_tag=$(echo $removed_line | cut -d':' -f3 | awk '$1==$1')
+          if [ -z "$removed_image_tag" ]; then
+            removed_image_tag="latest"
+          fi
+
+          if [ "$added_image_name" == "$removed_image_name" ]; then
+            diff_message="$diff_message$removed_image_name - $removed_image_tag -> $added_image_tag"$'\n'
+            match=1
+            break
+          fi
+        fi
+      done <<< "$diff"
+      if [ $match = "0" ]; then
+        diff_message="$diff_message$added_image_name - $added_image_tag (new image)"$'\n'
+      fi
+    fi
+  done <<< "$diff"
+
+  while read -r removed_line; do
+    if [[ $removed_line == -* ]]; then
+      removed_image_name=$(echo $removed_line | cut -d':' -f2 | cut -d'/' -f2 | awk '$1=$1')
+      removed_image_tag=$(echo $removed_line | cut -d':' -f3 | awk '$1==$1')
+      if [ -z "$removed_image_tag" ]; then
+        removed_image_tag="latest"
+      fi
+
+      match=0
+      while read -r added_line; do
+        if [[ $added_line == +* ]]; then
+          added_image_name=$(echo $added_line | cut -d':' -f2 | cut -d'/' -f2 | awk '$1=$1')
+          added_image_tag=$(echo $added_line | cut -d':' -f3 | awk '$1==$1')
+          if [ -z "$added_image_tag" ]; then
+            added_image_tag="latest"
+          fi
+
+          if [ "$added_image_name" == "$removed_image_name" ]; then
+            match=1
+            break
+          fi
+        fi
+      done <<< "$diff"
+      if [ $match = "0" ]; then
+        diff_message="$diff_message$removed_image_name - $removed_image_tag (removed image)"$'\n'
+      fi
+    fi
+  done <<< "$diff"
+
   push "Versions changed in $namespace. $committer_message $commit_message
-\`\`\`$diff\`\`\`"
+\`\`\`$diff_message\`\`\`"
 fi

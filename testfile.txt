@@ -1,7 +1,6 @@
 
 Random rubbish
 - image: myregistry.com/things:124124
-+ image: things:1.0.1
 
 - Stuff
 
@@ -11,6 +10,11 @@ Random rubbish
 + image: morethings
 
 - image: morethingsagain
-+ image: morethings:newversion
++ image: morethingsagain:newversion
 
++ image: beingadded:1.2.3
 Bananas
+
++ image: things:1.0.1
+
+- image: beingremoved:3.2.1
