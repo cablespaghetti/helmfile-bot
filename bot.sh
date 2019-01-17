@@ -11,10 +11,19 @@ then
   exit 1
 fi
 
+namespace=$2
+
 function push {
-  RESPONSE=$(curl -sS https://slack.com/api/chat.postMessage --data "token=$SLACK_TOKEN&channel=$SLACK_CHANNEL&text=$1&as_user=true&mrkdwn=true") 
+  RESPONSE=$(curl -Ss https://slack.com/api/chat.postMessage -d "token=${SLACK_TOKEN}&channel=${SLACK_CHANNEL}&text=${1}&as_user=true")
   echo $RESPONSE
 }
 
-push "I'm a test message"
+diff="$(cat $1 | sed -r 's/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g' | egrep --colour=never '^(\+|-)' | grep 'image:' | grep -v selenium | sed 's/+/%2B/g')"
 
+if [[ -z "${diff// }" ]]
+then
+  push "Deployment made to $namespace but no versions changed"
+else
+  push "Versions changed in $namespace:
+$diff"
+fi
