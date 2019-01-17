@@ -1,13 +1,14 @@
 #!/bin/bash
 
-while [[ "$#" > 1 ]]; do case $1 in
-  --diff-file) diff_file="$2";;
-  --slack-token) slack_token="$2";;
-  --slack-channel) slack_channel="$2";;
-  --namespace) namespace="$2";;
-  --commit-url) commit_url="$2";;
+while [ "$1" != "" ]; do case $1 in
+  --diff-file) shift; diff_file="$1";;
+  --slack-token) shift; slack_token="$1";;
+  --slack-channel) shift; slack_channel="$1";;
+  --namespace) shift; namespace="$1";;
+  --commit-url) shift; commit_url="$1";;
+  --dry-run) dry_run=1;;
     *) break;;
-  esac; shift; shift
+  esac; shift
 done
 
 if [ -z "$diff_file" ] || [ -z "$slack_token" ] || [ -z "$slack_channel" ] || [ -z "$namespace" ]; then
@@ -17,12 +18,17 @@ if [ -z "$diff_file" ] || [ -z "$slack_token" ] || [ -z "$slack_channel" ] || [ 
   echo "  --slack-channel (\$slack_channel)  The name of the Slack channel to post to"
   echo "  --namespace (\$namespace)          The name of the Kubnernetes namespace"
   echo "  --commit-url (\$commit_url)        The URL prefix to use for commit links (Optional)"
+  echo "  --dry-run (\$dry_run)              If set then echo instead of sending to the API (Optional)"
   exit 1
 fi
 
 function push {
-  response=$(curl -sS https://slack.com/api/chat.postMessage -d "token=${slack_token}&channel=${slack_channel}&text=${1}&as_user=true")
-  echo $response
+  if [ "$dry_run" = "1" ]; then
+    echo "$1"
+  else
+    response=$(curl -sS https://slack.com/api/chat.postMessage -d "token=${slack_token}&channel=${slack_channel}&text=${1}&as_user=true")
+    echo $response
+  fi
 }
 
 # Cat the file passed as the first positional argument
